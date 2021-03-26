@@ -26,13 +26,17 @@ include_directories(/usr/include/OGRE)
 include_directories(/opt/ros/noetic/include)
 link_directories(/opt/ros/noetic/lib)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}) 
+
+set(SOURCE_DIR src/)
+
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        myviz.cpp
-        myviz.h
-        mainwindow.ui
+        ${SOURCE_DIR}main.cpp
+        ${SOURCE_DIR}mainwindow.cpp
+        ${SOURCE_DIR}mainwindow.h
+        ${SOURCE_DIR}myviz.cpp
+        ${SOURCE_DIR}myviz.h
+        ${SOURCE_DIR}mainwindow.ui
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
