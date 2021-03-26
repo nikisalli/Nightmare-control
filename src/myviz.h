@@ -19,10 +19,6 @@ public:
   MyViz( QWidget* parent = 0 );
   virtual ~MyViz();
 
-private Q_SLOTS:
-  void setThickness( int thickness_percent );
-  void setCellSize( int cell_size_percent );
-
 private:
   rviz::VisualizationManager* manager_;
   rviz::RenderPanel* render_panel_;
