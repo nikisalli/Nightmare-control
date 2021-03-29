@@ -1,27 +1,40 @@
-#include "mainwindow.h"
-
 #include <QApplication>
-#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QQuickView>
+#include <QtQuick>
+#include <QString>
 
 #include <ros/ros.h>
 #include "myviz.h"
 
 int main(int argc, char **argv){
-  if(!ros::isInitialized()){
-    ros::init(argc, argv, "myviz", ros::init_options::AnonymousName);
-  }
+    if(!ros::isInitialized()){
+      ros::init(argc, argv, "myviz", ros::init_options::AnonymousName);
+    }
 
-  QApplication app(argc, argv);
-  QWidget window;
+    QApplication app(argc, argv);
+    QWidget window;
 
-  QVBoxLayout *vlayout = new QVBoxLayout();
+    QHBoxLayout *vlayout = new QHBoxLayout();
+    QQuickView *servo_current = new QQuickView();
+    QWidget *container = QWidget::createWindowContainer(servo_current);
 
-  MyViz* myviz = new MyViz();
+    container->setMinimumSize(300, 300);
+    container->setMaximumSize(300, 300);
 
-  vlayout->addWidget(myviz);
+    servo_current->setSource(QUrl::fromLocalFile("src/knob.qml"));
+    servo_current->setProperty("height", 300);
+    QMetaObject::invokeMethod(servo_current, "update");
 
-  window.setLayout(vlayout);
-  window.show();
+    MyViz* myviz = new MyViz();
 
-  return app.exec();
+    vlayout->addWidget(container);
+    vlayout->addWidget(myviz);
+
+    window.setLayout(vlayout);
+    window.show();
+
+    
+
+    return app.exec();
 }
