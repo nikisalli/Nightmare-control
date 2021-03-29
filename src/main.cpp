@@ -1,8 +1,8 @@
 #include "mainwindow.h"
 
 #include <QApplication>
+#include <QVBoxLayout>
 
-#include <QApplication>
 #include <ros/ros.h>
 #include "myviz.h"
 
@@ -12,11 +12,16 @@ int main(int argc, char **argv){
   }
 
   QApplication app(argc, argv);
+  QWidget window;
+
+  QVBoxLayout *vlayout = new QVBoxLayout();
 
   MyViz* myviz = new MyViz();
-  myviz->show();
 
-  app.exec();
+  vlayout->addWidget(myviz);
 
-  delete myviz;
+  window.setLayout(vlayout);
+  window.show();
+
+  return app.exec();
 }
