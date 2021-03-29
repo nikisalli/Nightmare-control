@@ -12,7 +12,7 @@ namespace rviz{
 class MyViz: public QWidget{
     Q_OBJECT
     public:
-        MyViz( QWidget* parent = 0 );
+        MyViz(QWidget* parent = 0);
         virtual ~MyViz();
 
     private:
@@ -21,6 +21,8 @@ class MyViz: public QWidget{
         rviz::Display* grid_;
         rviz::Display* robot_model_;
         rviz::Display* tf_;
+        rviz::Display* pc_;
+        rviz::Display* map_;
 };
 
 #endif // MYVIZ_H
