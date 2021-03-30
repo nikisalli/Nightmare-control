@@ -67,7 +67,6 @@ int main(int argc, char **argv){
     // - iterate on the gauge map to initialize all our gauges
     std::map<std::string, gauge*>::iterator it;
     for(auto& [key, val] : gauges){
-        std::cout << key << std::endl;
         val->view = new QQuickView();
         val->container = QWidget::createWindowContainer(val->view, &window);
         val->view->setSource(QUrl::fromLocalFile("src/knob.qml"));
@@ -76,10 +75,22 @@ int main(int argc, char **argv){
 
         val->obj = val->view->rootObject();
 
-        val->container->setMinimumSize(200, 200);
-        val->container->setMaximumSize(200, 200);
+        // set gauge options to be applied to all gauges
+        val->obj->setProperty("knobColor", QColor(106, 255, 206));
+        val->obj->setProperty("fontSize", 24);
+
+        val->container->setMinimumSize(350, 350);
+        val->container->setMaximumSize(350, 350);
         val->container->setFocusPolicy(Qt::TabFocus);
     }
+
+    // set gauges styles and properties
+    gauges["servo_current"]->obj->setProperty("to", 15.0);
+    gauges["computer_current"]->obj->setProperty("to", 4.0);
+    gauges["current"]->obj->setProperty("to", 15.0);
+    gauges["voltage"]->obj->setProperty("suffix", QString("V"));
+    //gauges["voltage"]->obj->setProperty("from", 6.0);
+    gauges["voltage"]->obj->setProperty("to", 10.0);
 
     // create ros subscribers
     ros::Subscriber sub1 = n.subscribe("/servo_current", 10, servo_current_callback);

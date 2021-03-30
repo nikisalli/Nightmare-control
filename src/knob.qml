@@ -29,12 +29,13 @@ Item {
     property double toAngle: Math.PI *2 + 1
 
     property int lineWidth: height / 10
-    property int fontSize: height / 7
+    property int fontSize: 30
 
-    property color knobBackgroundColor: Qt.rgba(0.1, 0.1, 0.1, 0)
-    property color knobColor: Qt.rgba(1, 0, 0, 1)
+    property color knobBackgroundColor: Qt.rgba(0.17, 0.17, 0.17, 1)
+    property color knobColor: Qt.rgba(0.415, 1, 0.807, 1)
 
-    property string title: ""
+    property string title: "test"
+    property string suffix: "A"
     property alias titleFont: labelTitle.font.family
     property alias titleFontSize: labelTitle.font.pointSize
     property alias titleFontColor: labelTitle.color
@@ -43,14 +44,14 @@ Item {
         knob.value = value
         canvas.requestPaint()
         background.requestPaint()
-        label.text = value.toFixed(2);
+        label.text = value.toFixed(2) + suffix;
     }
 
     Text {
         id: labelTitle
         y: 0
         text: knob.title
-        color: Qt.rgba(0, 0, 0., 0.5)
+        color: Qt.rgba(0.415, 1, 0.807, 1)
         horizontalAlignment: Text.AlignHCenter
         anchors.horizontalCenter: parent.horizontalCenter
     }
@@ -104,6 +105,7 @@ Item {
             z: 1
             font.pointSize: knob.fontSize
             text: knob.value.toFixed(2)
+            color: Qt.rgba(0.415, 1, 0.807, 1)
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             anchors.fill: parent
