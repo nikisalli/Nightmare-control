@@ -4,8 +4,10 @@ import QtQuick 2.0
 
 //all the automatic meagurements are made from height of Item
 Item {
+    objectName: "servo_current"
     id: knob
     transformOrigin: Item.Center
+    anchors.fill: parent
 
     property var metaData : ["from", "to", "value",
         "reverse",
@@ -16,7 +18,7 @@ Item {
 
     //value parameters
     property double from:0
-    property double value: 1
+    property double value: 50
     property double to: 100
 
     //progress from right to left
@@ -29,7 +31,7 @@ Item {
     property int lineWidth: height / 10
     property int fontSize: height / 7
 
-    property color knobBackgroundColor: Qt.rgba(0.1, 0.1, 0.1, 0.1)
+    property color knobBackgroundColor: Qt.rgba(0.1, 0.1, 0.1, 0)
     property color knobColor: Qt.rgba(1, 0, 0, 1)
 
     property string title: ""
