@@ -11,18 +11,21 @@
 #include <std_msgs/Float32.h>
 #include "myviz.h"
 
+QObject *servo_current_object;
+
 void ros_spin_func() {
     ROS_INFO("starting spinner");
     ros::spin();
 }
 
 void servo_current_callback(const std_msgs::Float32::ConstPtr& float_msg){
+    QMetaObject::invokeMethod(servo_current_object, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
     // ROS_INFO("computer_current: [%f]", float_msg->data);
 }
 
 int main(int argc, char **argv){
     if(!ros::isInitialized()){
-        ros::init(argc, argv, "myviz", ros::init_options::AnonymousName);
+        ros::init(argc, argv, "myviz");
     }
 
     ros::NodeHandle n;
@@ -43,7 +46,7 @@ int main(int argc, char **argv){
     servo_current->setResizeMode(QQuickView::SizeRootObjectToView);
     servo_current->setColor(QColor(49, 54, 59));
 
-    QObject *servo_current_object = servo_current->rootObject();
+    servo_current_object = servo_current->rootObject();
 
     container->setMinimumSize(300, 300);
     container->setMaximumSize(300, 300);
@@ -59,8 +62,6 @@ int main(int argc, char **argv){
 
     window->setLayout(hlayout);
     window->show();
-    
-    QMetaObject::invokeMethod(servo_current_object, "update", QGenericReturnArgument(), Q_ARG(QVariant, 70));
 
     int app_return = app.exec();
 
