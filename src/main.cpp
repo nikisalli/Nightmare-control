@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QQuickView>
 #include <QtQuick>
 #include <QString>
@@ -56,6 +57,7 @@ int main(int argc, char **argv){
 
     // create layout objects
     QHBoxLayout hlayout;
+    QVBoxLayout lvlayout;
     QGridLayout left_grid;
 
     // create gauges
@@ -78,6 +80,7 @@ int main(int argc, char **argv){
         // set gauge options to be applied to all gauges
         val->obj->setProperty("knobColor", QColor(106, 255, 206));
         val->obj->setProperty("fontSize", 24);
+        val->obj->setProperty("titleFontSize", 18);
 
         val->container->setMinimumSize(350, 350);
         val->container->setMaximumSize(350, 350);
@@ -86,11 +89,26 @@ int main(int argc, char **argv){
 
     // set gauges styles and properties
     gauges["servo_current"]->obj->setProperty("to", 15.0);
+    gauges["servo_current"]->obj->setProperty("title", QString("Servo Current"));
     gauges["computer_current"]->obj->setProperty("to", 4.0);
+    gauges["computer_current"]->obj->setProperty("title", QString("CPU Current"));
     gauges["current"]->obj->setProperty("to", 15.0);
+    gauges["current"]->obj->setProperty("title", QString("Total Current"));
     gauges["voltage"]->obj->setProperty("suffix", QString("V"));
-    //gauges["voltage"]->obj->setProperty("from", 6.0);
     gauges["voltage"]->obj->setProperty("to", 10.0);
+    gauges["voltage"]->obj->setProperty("title", QString("Voltage"));
+
+    // create joystick instance
+    QQuickView jsl;
+    QWidget* jcontainerl = QWidget::createWindowContainer(&jsl, &window);
+    jsl.setSource(QUrl::fromLocalFile("src/joystick.qml"));
+    jsl.resize(QSize(600, 600));
+    // jsl.setResizeMode(QQuickView::SizeRootObjectToView);
+    jsl.setColor(QColor(49, 54, 59));
+    QObject* jobjl = jsl.rootObject();
+    jcontainerl->setMinimumSize(600, 600);
+    jcontainerl->setMaximumSize(600, 600);
+    jcontainerl->setFocusPolicy(Qt::TabFocus);
 
     // create ros subscribers
     ros::Subscriber sub1 = n.subscribe("/servo_current", 10, servo_current_callback);
@@ -105,12 +123,23 @@ int main(int argc, char **argv){
     std::thread ros_spinner(ros_spin_func);
 
     // set layout
+    QSpacerItem sp1(50, 20);
+    QSpacerItem sp2(50, 20);
+    QSpacerItem sp3(50, 20);
+    QSpacerItem sp4(50, 20);
     left_grid.addWidget(gauges["computer_current"]->container, 0, 0);
-    left_grid.addWidget(gauges["servo_current"]->container, 1, 0);
-    left_grid.addWidget(gauges["current"]->container, 0, 1);
-    left_grid.addWidget(gauges["voltage"]->container, 1, 1);
+    left_grid.addItem(&sp1, 0, 1);
+    left_grid.addWidget(gauges["servo_current"]->container, 2, 0);
+    left_grid.addItem(&sp2, 1, 0);
+    left_grid.addWidget(gauges["current"]->container, 0, 2);
+    left_grid.addItem(&sp3, 1, 2);
+    left_grid.addWidget(gauges["voltage"]->container, 2, 2);
+    left_grid.addItem(&sp4, 2, 1);
 
-    hlayout.addLayout(&left_grid);
+    lvlayout.addLayout(&left_grid);
+    lvlayout.addWidget(jcontainerl, Qt::AlignHCenter);
+
+    hlayout.addLayout(&lvlayout);
     hlayout.addWidget(&myviz);
 
     window.setLayout(&hlayout);
