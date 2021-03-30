@@ -6,12 +6,22 @@
 #include <QColor>
 #include <QTimer>
 
+#include <map>
 #include <thread>
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
 #include "myviz.h"
 
-QObject *servo_current_object;
+struct gauge{
+    QQuickView *view;
+    QWidget *container;
+    QObject *obj;
+};
+
+// create gauge map to store a global reference to all our gauges
+std::map<std::string, gauge*> gauges;
+// typedef for commodity
+typedef std::pair<std::string, gauge*> MyPair;
 
 void ros_spin_func() {
     ROS_INFO("starting spinner");
@@ -19,54 +29,88 @@ void ros_spin_func() {
 }
 
 void servo_current_callback(const std_msgs::Float32::ConstPtr& float_msg){
-    QMetaObject::invokeMethod(servo_current_object, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
-    // ROS_INFO("computer_current: [%f]", float_msg->data);
+    QMetaObject::invokeMethod(gauges["servo_current"]->obj, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
+}
+
+void computer_current_callback(const std_msgs::Float32::ConstPtr& float_msg){
+    QMetaObject::invokeMethod(gauges["computer_current"]->obj, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
+}
+
+void current_callback(const std_msgs::Float32::ConstPtr& float_msg){
+    QMetaObject::invokeMethod(gauges["current"]->obj, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
+}
+
+void voltage_callback(const std_msgs::Float32::ConstPtr& float_msg){
+    QMetaObject::invokeMethod(gauges["voltage"]->obj, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
 }
 
 int main(int argc, char **argv){
-    if(!ros::isInitialized()){
-        ros::init(argc, argv, "myviz");
+    // initialize ros
+    ros::init(argc, argv, "myviz");
+    ros::NodeHandle n;
+
+    // create app and window
+    QApplication app(argc, argv);
+    QWidget window;
+    window.setStyleSheet("background:rgb(49, 54, 59);");
+
+    // create layout objects
+    QHBoxLayout hlayout;
+    QGridLayout left_grid;
+
+    // create gauges
+    gauges.insert(MyPair(((std::string)"computer_current"), new gauge()));
+    gauges.insert(MyPair(((std::string)"servo_current"), new gauge()));
+    gauges.insert(MyPair(((std::string)"current"), new gauge()));
+    gauges.insert(MyPair(((std::string)"voltage"), new gauge()));
+
+    // - iterate on the gauge map to initialize all our gauges
+    std::map<std::string, gauge*>::iterator it;
+    for(auto& [key, val] : gauges){
+        std::cout << key << std::endl;
+        val->view = new QQuickView();
+        val->container = QWidget::createWindowContainer(val->view, &window);
+        val->view->setSource(QUrl::fromLocalFile("src/knob.qml"));
+        val->view->setResizeMode(QQuickView::SizeRootObjectToView);
+        val->view->setColor(QColor(49, 54, 59));
+
+        val->obj = val->view->rootObject();
+
+        val->container->setMinimumSize(200, 200);
+        val->container->setMaximumSize(200, 200);
+        val->container->setFocusPolicy(Qt::TabFocus);
     }
 
-    ros::NodeHandle n;
-    ros::Subscriber sub = n.subscribe("/computer_current", 10, servo_current_callback);
+    // create ros subscribers
+    ros::Subscriber sub1 = n.subscribe("/servo_current", 10, servo_current_callback);
+    ros::Subscriber sub2 = n.subscribe("/computer_current", 10, computer_current_callback);
+    ros::Subscriber sub3 = n.subscribe("/current", 10, current_callback);
+    ros::Subscriber sub4 = n.subscribe("/voltage", 10, voltage_callback);
 
-    QApplication app(argc, argv);
+    // librviz instance
+    MyViz myviz;
 
-    QWidget *window = new QWidget();
-    window->setStyleSheet("background:rgb(49, 54, 59);");
-
-    QHBoxLayout *hlayout = new QHBoxLayout();
-
-    QQuickView *servo_current = new QQuickView();
-    
-    QWidget *container = QWidget::createWindowContainer(servo_current, window);
-
-    servo_current->setSource(QUrl::fromLocalFile("src/knob.qml"));
-    servo_current->setResizeMode(QQuickView::SizeRootObjectToView);
-    servo_current->setColor(QColor(49, 54, 59));
-
-    servo_current_object = servo_current->rootObject();
-
-    container->setMinimumSize(300, 300);
-    container->setMaximumSize(300, 300);
-    container->setFocusPolicy(Qt::TabFocus);
-    container->setAttribute(Qt::WA_TranslucentBackground, true);
-
-    MyViz* myviz = new MyViz();
-
+    // start ros polling in another thread
     std::thread ros_spinner(ros_spin_func);
 
-    hlayout->addWidget(container);
-    hlayout->addWidget(myviz);
+    // set layout
+    left_grid.addWidget(gauges["computer_current"]->container, 0, 0);
+    left_grid.addWidget(gauges["servo_current"]->container, 1, 0);
+    left_grid.addWidget(gauges["current"]->container, 0, 1);
+    left_grid.addWidget(gauges["voltage"]->container, 1, 1);
 
-    window->setLayout(hlayout);
-    window->show();
+    hlayout.addLayout(&left_grid);
+    hlayout.addWidget(&myviz);
 
+    window.setLayout(&hlayout);
+    window.show();
+
+    // execute app
     int app_return = app.exec();
 
     ROS_INFO("window closed. exiting...");
 
+    // kill ros thread
     ros_spinner.detach();
     ros::shutdown();
 
