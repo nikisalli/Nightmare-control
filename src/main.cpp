@@ -6,13 +6,26 @@
 #include <QString>
 #include <QColor>
 #include <QTimer>
+#include <QWidget>
+#include <QtCharts/QtCharts>
+#include <QVector>
 
 #include <map>
 #include <thread>
+#include <deque>
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
-#include "myviz.h"
+#include <csignal>
 
+#define CHART_POINTS 30
+
+// CHARTS
+QChart *chart;
+QLineSeries* series;
+QChartView *chartView;
+QVector<QPointF> current_queue;
+
+// GAUGES
 struct gauge{
     QQuickView *view;
     QWidget *container;
@@ -24,9 +37,15 @@ std::map<std::string, gauge*> gauges;
 // typedef for commodity
 typedef std::pair<std::string, gauge*> MyPair;
 
+// ROS and Signal handlers
 void ros_spin_func() {
     ROS_INFO("starting spinner");
     ros::spin();
+}
+
+void sigHandler(int s){
+    std::signal(s, SIG_DFL);
+    qApp->quit();
 }
 
 void servo_current_callback(const std_msgs::Float32::ConstPtr& float_msg){
@@ -39,6 +58,17 @@ void computer_current_callback(const std_msgs::Float32::ConstPtr& float_msg){
 
 void current_callback(const std_msgs::Float32::ConstPtr& float_msg){
     QMetaObject::invokeMethod(gauges["current"]->obj, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
+    QPointF p;
+    p.setY(float_msg->data);
+    p.setX(CHART_POINTS);
+    current_queue.push_back(p);
+    if(current_queue.size() > CHART_POINTS){
+        current_queue.pop_front();
+    }
+    for(auto& elem : current_queue){
+        elem.setX(elem.x() - 1);
+    }
+    series->replace(current_queue);
 }
 
 void voltage_callback(const std_msgs::Float32::ConstPtr& float_msg){
@@ -52,7 +82,13 @@ int main(int argc, char **argv){
 
     // create app and window
     QApplication app(argc, argv);
+
+    // signal handlers
+    std::signal(SIGINT,  sigHandler);
+    std::signal(SIGTERM, sigHandler);
+
     QWidget window;
+    window.setMinimumSize(250, 600);
     window.setStyleSheet("background:rgb(49, 54, 59);");
 
     // create layout objects
@@ -79,11 +115,11 @@ int main(int argc, char **argv){
 
         // set gauge options to be applied to all gauges
         val->obj->setProperty("knobColor", QColor(106, 255, 206));
-        val->obj->setProperty("fontSize", 24);
-        val->obj->setProperty("titleFontSize", 18);
+        val->obj->setProperty("fontSize", 14);
+        val->obj->setProperty("titleFontSize", 12);
 
-        val->container->setMinimumSize(350, 350);
-        val->container->setMaximumSize(350, 350);
+        val->container->setMinimumSize(130, 130);
+        val->container->setMaximumSize(130, 130);
         val->container->setFocusPolicy(Qt::TabFocus);
     }
 
@@ -98,17 +134,29 @@ int main(int argc, char **argv){
     gauges["voltage"]->obj->setProperty("to", 10.0);
     gauges["voltage"]->obj->setProperty("title", QString("Voltage"));
 
-    // create joystick instance
-    QQuickView jsl;
-    QWidget* jcontainerl = QWidget::createWindowContainer(&jsl, &window);
-    jsl.setSource(QUrl::fromLocalFile("src/joystick.qml"));
-    jsl.resize(QSize(600, 600));
-    // jsl.setResizeMode(QQuickView::SizeRootObjectToView);
-    jsl.setColor(QColor(49, 54, 59));
-    QObject* jobjl = jsl.rootObject();
-    jcontainerl->setMinimumSize(600, 600);
-    jcontainerl->setMaximumSize(600, 600);
-    jcontainerl->setFocusPolicy(Qt::TabFocus);
+    // edit chart
+    chart = new QChart();
+    series = new QLineSeries();
+    chartView  = new QChartView(chart);
+    // series->setUseOpenGL(true);
+    QPen pen;
+    QFont font;
+    pen.setColor(QColor(106, 255, 206));
+    pen.setWidth(2);
+    font.setPointSize(12);
+    series->setPen(pen);
+    chart->setTitle("Current");
+    chart->setTitleBrush(QBrush(QColor(106, 255, 206)));
+    chart->setTitleFont(font);
+    chart->legend()->hide();
+    chart->addSeries(series);
+    chart->createDefaultAxes();
+    chart->axes(Qt::Horizontal).first()->setRange(0, CHART_POINTS);
+    chart->axes(Qt::Horizontal).first()->setLabelsVisible(false);
+    chart->axes(Qt::Horizontal).first()->setGridLineVisible(false);
+    chart->axes(Qt::Vertical).first()->setRange(0, 15);
+    chart->axes(Qt::Vertical).first()->setLabelsBrush(QBrush(QColor(106, 255, 206)));
+    chart->setBackgroundBrush(QBrush(QColor("transparent")));
 
     // create ros subscribers
     ros::Subscriber sub1 = n.subscribe("/servo_current", 10, servo_current_callback);
@@ -116,31 +164,27 @@ int main(int argc, char **argv){
     ros::Subscriber sub3 = n.subscribe("/current", 10, current_callback);
     ros::Subscriber sub4 = n.subscribe("/voltage", 10, voltage_callback);
 
-    // librviz instance
-    MyViz myviz;
-
     // start ros polling in another thread
     std::thread ros_spinner(ros_spin_func);
 
     // set layout
-    QSpacerItem sp1(50, 20);
-    QSpacerItem sp2(50, 20);
-    QSpacerItem sp3(50, 20);
-    QSpacerItem sp4(50, 20);
+    QSpacerItem sp1(5, 5);
+    QSpacerItem sp2(5, 5);
+    QSpacerItem sp3(5, 5);
+    QSpacerItem sp4(5, 5);
     left_grid.addWidget(gauges["computer_current"]->container, 0, 0);
-    left_grid.addItem(&sp1, 0, 1);
+    //left_grid.addItem(&sp1, 0, 1);
     left_grid.addWidget(gauges["servo_current"]->container, 2, 0);
-    left_grid.addItem(&sp2, 1, 0);
+    //left_grid.addItem(&sp2, 1, 0);
     left_grid.addWidget(gauges["current"]->container, 0, 2);
-    left_grid.addItem(&sp3, 1, 2);
+    //left_grid.addItem(&sp3, 1, 2);
     left_grid.addWidget(gauges["voltage"]->container, 2, 2);
-    left_grid.addItem(&sp4, 2, 1);
+    //left_grid.addItem(&sp4, 2, 1);
 
     lvlayout.addLayout(&left_grid);
-    lvlayout.addWidget(jcontainerl, Qt::AlignHCenter);
+    lvlayout.addWidget(chartView);
 
     hlayout.addLayout(&lvlayout);
-    hlayout.addWidget(&myviz);
 
     window.setLayout(&hlayout);
     window.show();
@@ -151,8 +195,8 @@ int main(int argc, char **argv){
     ROS_INFO("window closed. exiting...");
 
     // kill ros thread
-    ros_spinner.detach();
     ros::shutdown();
+    ros_spinner.detach();
 
     return app_return;
 }

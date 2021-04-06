@@ -14,10 +14,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 COMPONENTS Widgets Qml Quick QuickWidgets REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Widgets Qml Quick QuickWidgets REQUIRED)
 
+find_package(Qt5Charts)
+
 find_package(roscpp REQUIRED)
 find_package(rviz REQUIRED)
 find_package(rosconsole REQUIRED)
 find_package(rostime REQUIRED)
+
+find_package(Boost COMPONENTS system filesystem REQUIRED)
 
 include_directories(/usr/include/OGRE)
 
@@ -30,8 +34,6 @@ set(SOURCE_DIR src/)
 
 set(PROJECT_SOURCES
     ${SOURCE_DIR}main.cpp
-    ${SOURCE_DIR}myviz.cpp
-    ${SOURCE_DIR}myviz.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -48,9 +50,12 @@ target_link_libraries(Nightmare-control PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(Nightmare-control PRIVATE Qt${QT_VERSION_MAJOR}::Qml)
 target_link_libraries(Nightmare-control PRIVATE Qt${QT_VERSION_MAJOR}::Quick)
 target_link_libraries(Nightmare-control PRIVATE Qt${QT_VERSION_MAJOR}::QuickWidgets)
+target_link_libraries(Nightmare-control PRIVATE Qt${QT_VERSION_MAJOR}::Charts)
 target_link_libraries(Nightmare-control PRIVATE roscpp)
 target_link_libraries(Nightmare-control PRIVATE rviz)
 target_link_libraries(Nightmare-control PRIVATE rosconsole)
 target_link_libraries(Nightmare-control PRIVATE rostime)
 target_link_libraries(Nightmare-control PRIVATE roscpp_serialization)
 target_link_libraries(Nightmare-control PRIVATE pthread)
+target_link_libraries(Nightmare-control PRIVATE ${Boost_FILESYSTEM_LIBRARY})
+target_link_libraries(Nightmare-control PRIVATE ${Boost_SYSTEM_LIBRARY})

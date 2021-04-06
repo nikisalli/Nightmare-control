@@ -6,6 +6,8 @@ import QtQuick 2.0
 Item {
     objectName: "servo_current"
     id: knob
+    width: 130
+    height: 130
     transformOrigin: Item.Center
     anchors.fill: parent
 
