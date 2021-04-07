@@ -16,14 +16,18 @@
 #include <ros/ros.h>
 #include <std_msgs/Float32.h>
 #include <csignal>
+#include <mutex>
+#include <time.h>
 
-#define CHART_POINTS 30
+#define CHART_POINTS 50
 
 // CHARTS
 QChart *chart;
 QLineSeries* series;
 QChartView *chartView;
 QVector<QPointF> current_queue;
+std::mutex mtx;
+unsigned long prev_chart_ms;
 
 // GAUGES
 struct gauge{
@@ -57,18 +61,25 @@ void computer_current_callback(const std_msgs::Float32::ConstPtr& float_msg){
 }
 
 void current_callback(const std_msgs::Float32::ConstPtr& float_msg){
+    mtx.lock();
     QMetaObject::invokeMethod(gauges["current"]->obj, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
-    QPointF p;
-    p.setY(float_msg->data);
-    p.setX(CHART_POINTS);
-    current_queue.push_back(p);
-    if(current_queue.size() > CHART_POINTS){
-        current_queue.pop_front();
+    struct timespec spec;
+    clock_gettime(CLOCK_REALTIME, &spec);
+    if((spec.tv_nsec / 1000000) - prev_chart_ms > 20){  // execute every 20ms
+        QPointF p;
+        p.setY(float_msg->data);
+        p.setX(CHART_POINTS);
+        current_queue.push_back(p);
+        if(current_queue.size() > CHART_POINTS){
+            current_queue.pop_front();
+        }
+        for(auto& elem : current_queue){
+            elem.setX(elem.x() - 1);
+        }
+        series->replace(current_queue);
+        prev_chart_ms = (spec.tv_nsec / 1000000);
     }
-    for(auto& elem : current_queue){
-        elem.setX(elem.x() - 1);
-    }
-    series->replace(current_queue);
+    mtx.unlock();
 }
 
 void voltage_callback(const std_msgs::Float32::ConstPtr& float_msg){
@@ -93,6 +104,7 @@ int main(int argc, char **argv){
 
     // create layout objects
     QHBoxLayout hlayout;
+    hlayout.setSpacing(0);
     QVBoxLayout lvlayout;
     QGridLayout left_grid;
 
