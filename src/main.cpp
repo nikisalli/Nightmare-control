@@ -1,3 +1,4 @@
+// QT
 #include <QApplication>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -10,16 +11,33 @@
 #include <QtCharts/QtCharts>
 #include <QVector>
 
+// std
 #include <map>
 #include <thread>
 #include <deque>
-#include <ros/ros.h>
-#include <std_msgs/Float32.h>
 #include <csignal>
 #include <mutex>
 #include <time.h>
 
+//ros
+#include <ros/ros.h>
+#include <std_msgs/Float32.h>
+
+//linux
+#include <fcntl.h> // Contains file controls like O_RDWR
+#include <errno.h> // Error integer and strerror() function
+#include <termios.h> // Contains POSIX terminal control definitions
+#include <unistd.h> // write(), read(), close()
+
 #define CHART_POINTS 50
+
+// joysticks
+int USB;
+int vrx1 = 0;
+int vry1 = 0;
+int vrx2 = 0;
+int vry2 = 0;
+std::mutex smtx;
 
 // CHARTS
 QChart *chart;
@@ -86,10 +104,65 @@ void voltage_callback(const std_msgs::Float32::ConstPtr& float_msg){
     QMetaObject::invokeMethod(gauges["voltage"]->obj, "update", QGenericReturnArgument(), Q_ARG(QVariant, float_msg->data));
 }
 
+uint8_t sread(int *ser){
+    uint8_t buf = 0;
+    read(USB, &buf, 1);
+    return buf;
+}
+
+void serial_read_thread(){
+    while(1){
+        if(sread(&USB) != 0x55){
+            continue;
+        }
+        if(sread(&USB) != 0x55){
+            continue;
+        }
+        smtx.lock();
+        vrx1 = sread(&USB);
+        vrx2 = sread(&USB);
+        vry1 = sread(&USB);
+        vry2 = sread(&USB);
+        smtx.unlock();
+        printf("%d %d %d %d\n", vrx1, vry1, vrx2, vry2);
+    }
+    
+}
+
 int main(int argc, char **argv){
     // initialize ros
-    ros::init(argc, argv, "myviz");
+    ros::init(argc, argv, "nightmare_control");
     ros::NodeHandle n;
+
+    // initialize serial port
+    USB = open( "/dev/ttyUSB0", O_RDWR| O_NOCTTY );
+    struct termios tty;
+    struct termios tty_old;
+    memset(&tty, 0, sizeof tty);
+    // check for errors
+    if ( tcgetattr ( USB, &tty ) != 0 ) {
+        std::cout << "Error " << errno << " from tcgetattr: " << strerror(errno) << std::endl;
+    }
+    tty_old = tty;
+    // set speed
+    cfsetospeed (&tty, (speed_t)B115200);
+    cfsetispeed (&tty, (speed_t)B115200);
+
+    tty.c_cflag     &=  ~PARENB;            // Make 8n1
+    tty.c_cflag     &=  ~CSTOPB;
+    tty.c_cflag     &=  ~CSIZE;
+    tty.c_cflag     |=  CS8;
+    tty.c_cflag     &=  ~CRTSCTS;           // no flow control
+    tty.c_cc[VMIN]   =  1;                  // read doesn't block
+    tty.c_cc[VTIME]  =  5;                  // 0.5 seconds read timeout
+    tty.c_cflag     |=  CREAD | CLOCAL;     // turn on READ & ignore ctrl lines
+
+    // flush and apply settings
+    cfmakeraw(&tty);
+    tcflush( USB, TCIFLUSH );
+    if ( tcsetattr ( USB, TCSANOW, &tty ) != 0) {
+        std::cout << "Error " << errno << " from tcsetattr" << std::endl;
+    }
 
     // create app and window
     QApplication app(argc, argv);
@@ -178,20 +251,13 @@ int main(int argc, char **argv){
 
     // start ros polling in another thread
     std::thread ros_spinner(ros_spin_func);
+    std::thread serial_thread(serial_read_thread);
 
     // set layout
-    QSpacerItem sp1(5, 5);
-    QSpacerItem sp2(5, 5);
-    QSpacerItem sp3(5, 5);
-    QSpacerItem sp4(5, 5);
     left_grid.addWidget(gauges["computer_current"]->container, 0, 0);
-    //left_grid.addItem(&sp1, 0, 1);
-    left_grid.addWidget(gauges["servo_current"]->container, 2, 0);
-    //left_grid.addItem(&sp2, 1, 0);
-    left_grid.addWidget(gauges["current"]->container, 0, 2);
-    //left_grid.addItem(&sp3, 1, 2);
-    left_grid.addWidget(gauges["voltage"]->container, 2, 2);
-    //left_grid.addItem(&sp4, 2, 1);
+    left_grid.addWidget(gauges["servo_current"]->container, 0, 1);
+    left_grid.addWidget(gauges["current"]->container, 1, 0);
+    left_grid.addWidget(gauges["voltage"]->container, 1, 1);
 
     lvlayout.addLayout(&left_grid);
     lvlayout.addWidget(chartView);
